@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 public class PaymentVerifyRequest {
     @NotNull
-    private Long orderId;
+    private String orderId;
     private String transactionId;
     /** simulate success/failure for demo purposes */
     private boolean simulateSuccess = true;

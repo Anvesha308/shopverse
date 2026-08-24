@@ -1,16 +1,17 @@
 package com.ecommerce.entity;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "products")
+@Document(collection = "products")
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,20 +19,14 @@ import java.time.LocalDateTime;
 public class Product {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @Column(nullable = false)
+    @Indexed
     private String name;
 
-    @Column(length = 2000)
     private String description;
-
     private String brand;
-
-    @Column(nullable = false)
     private BigDecimal price;
-
     private BigDecimal mrp;
 
     @Builder.Default
@@ -45,9 +40,10 @@ public class Product {
     @Builder.Default
     private Integer ratingCount = 0;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    private Category category;
+    // Denormalized (no joins in MongoDB) - store both id and name for display
+    @Indexed
+    private String categoryId;
+    private String categoryName;
 
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

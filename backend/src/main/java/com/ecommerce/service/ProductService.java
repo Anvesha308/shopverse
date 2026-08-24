@@ -8,9 +8,9 @@ import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
 
 public interface ProductService {
-    Page<ProductResponse> search(String keyword, Long categoryId, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
-    ProductResponse getById(Long id);
+    Page<ProductResponse> search(String keyword, String categoryId, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
+    ProductResponse getById(String id);
     ProductResponse create(ProductRequest request);
-    ProductResponse update(Long id, ProductRequest request);
-    void delete(Long id);
+    ProductResponse update(String id, ProductRequest request);
+    void delete(String id);
 }

@@ -3,8 +3,8 @@ package com.ecommerce.repository;
 import com.ecommerce.entity.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
-public interface OrderRepository extends JpaRepository<Order, Long> {
-    Page<Order> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+public interface OrderRepository extends MongoRepository<Order, String> {
+    Page<Order> findByUserIdOrderByCreatedAtDesc(String userId, Pageable pageable);
 }

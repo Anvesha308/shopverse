@@ -27,13 +27,13 @@ public class CartController {
     }
 
     @PutMapping("/items/{cartItemId}")
-    public ResponseEntity<CartResponse> updateItem(Authentication auth, @PathVariable Long cartItemId,
+    public ResponseEntity<CartResponse> updateItem(Authentication auth, @PathVariable String cartItemId,
                                                      @RequestParam Integer quantity) {
         return ResponseEntity.ok(cartService.updateItem(auth.getName(), cartItemId, quantity));
     }
 
     @DeleteMapping("/items/{cartItemId}")
-    public ResponseEntity<CartResponse> removeItem(Authentication auth, @PathVariable Long cartItemId) {
+    public ResponseEntity<CartResponse> removeItem(Authentication auth, @PathVariable String cartItemId) {
         return ResponseEntity.ok(cartService.removeItem(auth.getName(), cartItemId));
     }
 

@@ -1,31 +1,17 @@
 package com.ecommerce.entity;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "cart_items")
+/** Embedded inside Cart - not its own MongoDB collection. */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class CartItem {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cart_id")
-    private Cart cart;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "product_id")
-    private Product product;
-
-    @Builder.Default
-    private Integer quantity = 1;
+    private String id;
+    private String productId;
+    private Integer quantity;
 }

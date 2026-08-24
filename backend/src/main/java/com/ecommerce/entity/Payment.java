@@ -1,16 +1,17 @@
 package com.ecommerce.entity;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "payments")
+@Document(collection = "payments")
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,22 +19,16 @@ import java.time.LocalDateTime;
 public class Payment {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", unique = true)
-    private Order order;
+    @Indexed(unique = true)
+    private String orderId;
 
     private String transactionId;
-
     private String provider;
-
     private String method;
-
     private BigDecimal amount;
 
-    @Enumerated(EnumType.STRING)
     @Builder.Default
     private PaymentStatus status = PaymentStatus.INITIATED;
 

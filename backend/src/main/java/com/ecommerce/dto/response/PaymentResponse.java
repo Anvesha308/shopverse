@@ -15,6 +15,6 @@ public class PaymentResponse {
     private String transactionId;
     private String status;
     private BigDecimal amount;
-    private Long orderId;
+    private String orderId;
     private String orderStatus;
 }

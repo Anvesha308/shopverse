@@ -10,11 +10,18 @@ import com.ecommerce.repository.ProductRepository;
 import com.ecommerce.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -22,16 +29,44 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final MongoTemplate mongoTemplate;
 
     @Override
-    public Page<ProductResponse> search(String keyword, Long categoryId, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
-        String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
-        return productRepository.search(kw, categoryId, minPrice, maxPrice, pageable)
-                .map(this::toResponse);
+    public Page<ProductResponse> search(String keyword, String categoryId, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
+        List<Criteria> criteriaList = new ArrayList<>();
+        criteriaList.add(Criteria.where("active").is(true));
+
+        if (keyword != null && !keyword.isBlank()) {
+            Pattern pattern = Pattern.compile(Pattern.quote(keyword.trim()), Pattern.CASE_INSENSITIVE);
+            criteriaList.add(new Criteria().orOperator(
+                    Criteria.where("name").regex(pattern),
+                    Criteria.where("brand").regex(pattern),
+                    Criteria.where("description").regex(pattern)
+            ));
+        }
+        if (categoryId != null && !categoryId.isBlank()) {
+            criteriaList.add(Criteria.where("categoryId").is(categoryId));
+        }
+        if (minPrice != null) {
+            criteriaList.add(Criteria.where("price").gte(minPrice));
+        }
+        if (maxPrice != null) {
+            criteriaList.add(Criteria.where("price").lte(maxPrice));
+        }
+
+        Criteria combined = new Criteria().andOperator(criteriaList.toArray(new Criteria[0]));
+        Query query = new Query(combined);
+
+        long total = mongoTemplate.count(query, Product.class);
+        query.with(pageable);
+        List<Product> products = mongoTemplate.find(query, Product.class);
+
+        List<ProductResponse> responses = products.stream().map(this::toResponse).toList();
+        return new PageImpl<>(responses, pageable, total);
     }
 
     @Override
-    public ProductResponse getById(Long id) {
+    public ProductResponse getById(String id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id " + id));
         return toResponse(product);
@@ -39,10 +74,11 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductResponse create(ProductRequest request) {
-        Category category = null;
+        String categoryName = null;
         if (request.getCategoryId() != null) {
-            category = categoryRepository.findById(request.getCategoryId())
+            Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+            categoryName = category.getName();
         }
 
         Product product = Product.builder()
@@ -53,21 +89,23 @@ public class ProductServiceImpl implements ProductService {
                 .mrp(request.getMrp())
                 .stock(request.getStock())
                 .imageUrl(request.getImageUrl())
-                .category(category)
+                .categoryId(request.getCategoryId())
+                .categoryName(categoryName)
                 .build();
 
         return toResponse(productRepository.save(product));
     }
 
     @Override
-    public ProductResponse update(Long id, ProductRequest request) {
+    public ProductResponse update(String id, ProductRequest request) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id " + id));
 
         if (request.getCategoryId() != null) {
             Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
-            product.setCategory(category);
+            product.setCategoryId(category.getId());
+            product.setCategoryName(category.getName());
         }
 
         product.setName(request.getName());
@@ -82,7 +120,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(String id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id " + id));
         product.setActive(false);
@@ -110,8 +148,8 @@ public class ProductServiceImpl implements ProductService {
                 .imageUrl(p.getImageUrl())
                 .rating(p.getRating())
                 .ratingCount(p.getRatingCount())
-                .categoryName(p.getCategory() != null ? p.getCategory().getName() : null)
-                .categoryId(p.getCategory() != null ? p.getCategory().getId() : null)
+                .categoryName(p.getCategoryName())
+                .categoryId(p.getCategoryId())
                 .build();
     }
 }

@@ -11,12 +11,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +30,6 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
 
     @Override
-    @Transactional
     public OrderResponse checkout(String userEmail, CheckoutRequest request) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -41,19 +41,39 @@ public class OrderServiceImpl implements OrderService {
             throw new BadRequestException("Your cart is empty");
         }
 
+        List<String> productIds = cart.getItems().stream().map(CartItem::getProductId).toList();
+        Map<String, Product> productsById = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+
         // validate stock and compute total
         BigDecimal total = BigDecimal.ZERO;
         for (CartItem ci : cart.getItems()) {
-            Product product = ci.getProduct();
+            Product product = productsById.get(ci.getProductId());
+            if (product == null) {
+                throw new BadRequestException("A product in your cart is no longer available");
+            }
             if (product.getStock() < ci.getQuantity()) {
                 throw new BadRequestException("Only " + product.getStock() + " units of \"" + product.getName() + "\" left in stock");
             }
             total = total.add(product.getPrice().multiply(BigDecimal.valueOf(ci.getQuantity())));
         }
 
+        List<OrderItem> orderItems = cart.getItems().stream()
+                .map(ci -> {
+                    Product product = productsById.get(ci.getProductId());
+                    return OrderItem.builder()
+                            .productId(product.getId())
+                            .productName(product.getName())
+                            .price(product.getPrice())
+                            .quantity(ci.getQuantity())
+                            .build();
+                })
+                .toList();
+
         Order order = Order.builder()
                 .orderNumber("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                .user(user)
+                .userId(user.getId())
+                .items(orderItems)
                 .totalAmount(total)
                 .status(OrderStatus.PENDING)
                 .shippingAddress(request.getShippingAddress())
@@ -61,20 +81,9 @@ public class OrderServiceImpl implements OrderService {
                 .shippingPincode(request.getShippingPincode())
                 .build();
 
-        List<OrderItem> orderItems = cart.getItems().stream()
-                .map(ci -> OrderItem.builder()
-                        .order(order)
-                        .product(ci.getProduct())
-                        .productName(ci.getProduct().getName())
-                        .price(ci.getProduct().getPrice())
-                        .quantity(ci.getQuantity())
-                        .build())
-                .toList();
-        order.setItems(orderItems);
-
         // reserve stock
         for (CartItem ci : cart.getItems()) {
-            Product product = ci.getProduct();
+            Product product = productsById.get(ci.getProductId());
             product.setStock(product.getStock() - ci.getQuantity());
             productRepository.save(product);
         }
@@ -82,7 +91,7 @@ public class OrderServiceImpl implements OrderService {
         orderRepository.save(order);
 
         Payment payment = Payment.builder()
-                .order(order)
+                .orderId(order.getId())
                 .provider(request.getPaymentMethod() == null ? "MOCK" : request.getPaymentMethod())
                 .method(request.getPaymentMethod())
                 .amount(total)
@@ -106,12 +115,12 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public OrderResponse getOrder(String userEmail, Long orderId) {
+    public OrderResponse getOrder(String userEmail, String orderId) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-        if (!order.getUser().getId().equals(user.getId())) {
+        if (!order.getUserId().equals(user.getId())) {
             throw new BadRequestException("This order does not belong to you");
         }
         return toResponse(order);

@@ -1,10 +1,10 @@
 package com.ecommerce.repository;
 
 import com.ecommerce.entity.Payment;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.Optional;
 
-public interface PaymentRepository extends JpaRepository<Payment, Long> {
-    Optional<Payment> findByOrderId(Long orderId);
+public interface PaymentRepository extends MongoRepository<Payment, String> {
+    Optional<Payment> findByOrderId(String orderId);
 }

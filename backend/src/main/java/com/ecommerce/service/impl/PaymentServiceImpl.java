@@ -8,10 +8,10 @@ import com.ecommerce.exception.ResourceNotFoundException;
 import com.ecommerce.repository.OrderRepository;
 import com.ecommerce.repository.PaymentRepository;
 import com.ecommerce.repository.ProductRepository;
+import com.ecommerce.repository.UserRepository;
 import com.ecommerce.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -28,23 +28,26 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
 
     @Override
-    @Transactional
     public PaymentResponse verifyPayment(String userEmail, PaymentVerifyRequest request) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
         Order order = orderRepository.findById(request.getOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
-        if (!order.getUser().getEmail().equalsIgnoreCase(userEmail)) {
+        if (!order.getUserId().equals(user.getId())) {
             throw new BadRequestException("This order does not belong to you");
-        }
-
-        if (order.getStatus() != OrderStatus.PENDING) {
-            throw new BadRequestException("This order has already been processed");
         }
 
         Payment payment = paymentRepository.findByOrderId(order.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Payment record not found"));
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new BadRequestException("This order has already been processed");
+        }
 
         String txnId = request.getTransactionId() != null
                 ? request.getTransactionId()
@@ -59,9 +62,10 @@ public class PaymentServiceImpl implements PaymentService {
             order.setStatus(OrderStatus.CANCELLED);
             // restock items since payment failed
             for (OrderItem item : order.getItems()) {
-                Product product = item.getProduct();
-                product.setStock(product.getStock() + item.getQuantity());
-                productRepository.save(product);
+                productRepository.findById(item.getProductId()).ifPresent(product -> {
+                    product.setStock(product.getStock() + item.getQuantity());
+                    productRepository.save(product);
+                });
             }
         }
 
