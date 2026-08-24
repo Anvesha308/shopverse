@@ -20,12 +20,12 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/shopverse_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/shopverse_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       JWT_SECRET: ${JWT_SECRET:-change-this-super-secret-key-shopverse-2026-minimum-32-bytes-long}
     ports:
-      - "8080:8080"
+      - "8090:8080"
 
   frontend:
     build: ./frontend
@@ -33,7 +33,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "5173:80"
+      - "5180:80"
 
 volumes:
   mysql_data:
